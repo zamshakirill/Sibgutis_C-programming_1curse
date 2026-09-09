@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "C:\\Users\\KiriruShade\\scoop\\apps\\gcc\\15.2.0\\bin\\gcc.exe"
+        }
+    ],
+    "version": 4
+}

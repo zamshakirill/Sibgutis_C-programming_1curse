@@ -1,0 +1,22 @@
+error = int(input())
+match error:
+    case 100:
+        print('Ошибка конфигурации')
+    case 101:
+        print('Неизвестный параметр')
+    case 102:
+        print('Некорректное значение')
+    case 200:
+        print('Соединение установлено')
+    case 201:
+        print('Соединение разорвано')
+    case 300:
+        print('Ошибка авторизации')
+    case 301:
+        print('Доступ запрещён')
+    case 400:
+        print('Ошибка оборудования')
+    case 500:
+        print('Критическая ошибка')
+    case _:
+        print('Unknown error')

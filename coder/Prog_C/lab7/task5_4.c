@@ -22,7 +22,7 @@ void print_words(char words[MAX_WORDS][MAX_LEN], int count) {
 }
 
 int main() {
-    char text[] = "orange apple banana kiwi";
+    char text[] = "qwerty orange apple banana kiwi asdfg";
     int count_word = 0;
     char words[MAX_WORDS][MAX_LEN];
 

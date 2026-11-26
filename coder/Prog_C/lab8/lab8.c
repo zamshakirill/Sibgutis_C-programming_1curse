@@ -1,7 +1,49 @@
+#ifndef _WIN32
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+#endif
+//-------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
+//-------------------------------------------------------------------------
+#ifdef _WIN32
+#include <conio.h>
+#include <windows.h>
+#define msleep(ms) Sleep(ms)
+static int get_key(void) { return _kbhit() ? _getch() : -1; }
+static void term_init(void) {}
+static void term_restore(void) {}
+#else
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
+static struct termios old_t;
+static int old_fl;
+static void msleep(int ms) {
+    struct timespec ts = { ms / 1000, (long)(ms % 1000) * 1000000L };
+    nanosleep(&ts, NULL);
+}
+static void term_init(void) {
+    struct termios t;
+    tcgetattr(0, &old_t);
+    t = old_t;
+    t.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+    tcsetattr(0, TCSANOW, &t);
+    old_fl = fcntl(0, F_GETFL, 0);
+    fcntl(0, F_SETFL, old_fl | O_NONBLOCK);
+}
+static void term_restore(void) {
+    tcsetattr(0, TCSANOW, &old_t);
+    fcntl(0, F_SETFL, old_fl);
+}
+static int get_key(void) {
+    unsigned char c;
+    return read(0, &c, 1) == 1 ? c : -1;
+}
+#endif
+//--------------------------------------------------------
 // проверяем занята ли клетка с индексом idx змейкой
 int is_on_snake(const int *snake, int lenght, int idx) {
     for (int i = 0; i < lenght; i++) {
@@ -26,6 +68,8 @@ int spawn_food(int rows, int cols, const int *snake, int lenght) {
 void draw_frame(char *canvas, int rows, int cols,
      const int *snake, int length, int food_idx, int score, int delay) {
     int total_cells = rows * cols;
+
+    printf("\033[H\033[J");
 
     for (int i = 0; i < total_cells; i++) {
         canvas[i] = ' ';
@@ -66,9 +110,10 @@ void draw_frame(char *canvas, int rows, int cols,
     }
     printf("+\n");
 
-    //печатаем счет после каждого кадра
+    // печатаем счет после каждого кадра
     printf("Score: %d | Speed delay: %d ms\n", score, delay);
-    printf("Commands (w/a/s/d — moving, q — exit): ");
+    printf("WASD — поворот, Q — выход\n");
+    fflush(stdout);
 }
 
 int step_snake(int **snake_ptr, int *length, int rows, int cols, int dx, int dy, int *food_idx, int *score, int *delay) {
@@ -82,7 +127,7 @@ int step_snake(int **snake_ptr, int *length, int rows, int cols, int dx, int dy,
     int new_x = head_x + dx;
     int new_y = head_y + dy;
 
-    //проверка столкновения со стеной
+    // проверка столкновения со стеной
     if (new_x < 0 || new_x >= cols || new_y < 0 || new_y >= rows) {
         return 0;
     }
@@ -97,7 +142,7 @@ int step_snake(int **snake_ptr, int *length, int rows, int cols, int dx, int dy,
         }
     }
 
-    //Обновляем змейку
+    // Обновляем змейку
     if (ate_food) {
         int new_len = len + 1;
         int *resized = realloc(snake, (size_t)new_len * sizeof(int));
@@ -121,7 +166,7 @@ int step_snake(int **snake_ptr, int *length, int rows, int cols, int dx, int dy,
             snake[i] = snake[i + 1];
         }
         snake[len - 1] = new_head_idx;
-     }
+    }
     return 1;
 }
 
@@ -135,14 +180,12 @@ int main () {
         return 1;
     }
 
-    // выделяем память под массив и строим его
     char *canvas = malloc((size_t)(rows * cols) * sizeof (char));
     if (!canvas) {
         perror("error allocating memory for a field");
         return 1;
     }
 
-    // строим начальную змейку и выделяем под нее память 
     int *snake = malloc((size_t)length * sizeof(int));
     if (!snake) {
         perror("Error allocating memory for the snake");
@@ -150,7 +193,6 @@ int main () {
         return 1;
     }
 
-    // положение змейки и ее начальное заполнение
     int start_y = rows / 2;
     int start_x = cols / 2 - 1;
     for (int i = 0; i < length;  i++) {
@@ -172,27 +214,24 @@ int main () {
         return 0;
     }
 
+    term_init();
+
     int dx = 1;
     int dy = 0;
     int game_over = 0;
     while (!game_over) {
         draw_frame(canvas, rows, cols, snake, length, food_idx, score, delay);
-        char cmd;
-        if (scanf(" %c", &cmd) != 1) {
-            break;
-        }
+        msleep(delay);
+
+        int cmd = get_key();
         if ((cmd == 'w' || cmd == 'W') && dy != 1) {
-            dx = 0;
-            dy = -1;
+            dx = 0; dy = -1;
         } else if ((cmd == 's' || cmd == 'S') && dy != -1) {
-            dx = 0;
-            dy = 1;
+            dx = 0; dy = 1;
         } else if ((cmd == 'a' || cmd == 'A') && dx != 1) {
-            dx = -1;
-            dy = 0;
+            dx = -1; dy = 0;
         } else if ((cmd == 'd' || cmd == 'D') && dx != -1) {
-            dx = 1;
-            dy = 0;
+            dx = 1; dy = 0;
         } else if (cmd == 'q' || cmd == 'Q') {
             break;
         }
@@ -203,8 +242,10 @@ int main () {
         } else if (status < 0) {
             game_over = 1;
             fprintf(stderr, "Игра прервана из-за ошибки или заполнения поля.\n");
-        } 
+        }
     }
+
+    term_restore();
 
     printf("\nGame Over! Итоговый счет: %d, длина змейки: %d\n", score, length);
 
